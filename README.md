@@ -1,1 +1,1 @@
-# automate-cloudsec-with-step-func
+# Automate Cloud Security Workflows Using AWS Step Functions
