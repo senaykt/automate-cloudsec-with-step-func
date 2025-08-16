@@ -1,0 +1,91 @@
+{
+  "Comment": "IAM Risky User Remediation Workflow (per user)",
+  "StartAt": "DetectRiskyUser",
+  "States": {
+    "DetectRiskyUser": {
+      "Type": "Task",
+      "Resource": "",  # your-lambda-arn
+      "ResultPath": "$.detectResult",
+      "Next": "ForEachRiskyUser"
+    },
+    "ForEachRiskyUser": {
+      "Type": "Map",
+      "ItemsPath": "$.detectResult.RiskyUsers",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "User.$": "$$.Map.Item.Value"
+      },
+      "Iterator": {
+        "StartAt": "SendApprovalRequest",
+        "States": {
+          "SendApprovalRequest": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+            "Parameters": {
+              "FunctionName": "", # your-lambda-arn
+              "Payload": {
+                "TaskToken.$": "$$.Task.Token",
+                "User.$": "$.User"
+              }
+            },
+            "ResultPath": "$.SendApprovalRequestResult",
+            "TimeoutSeconds": 86400,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Timeout"
+                ],
+                "Next": "EscalateToSecurityLead"
+              }
+            ],
+            "Next": "ChoiceApproved"
+          },
+          "ChoiceApproved": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.SendApprovalRequestResult.Payload.ApprovalStatus",
+                "StringEquals": "Approved",
+                "Next": "DisableUser"
+              },
+              {
+                "Variable": "$.SendApprovalRequestResult.Payload.ApprovalStatus",
+                "StringEquals": "Rejected",
+                "Next": "LogAction"
+              }
+            ],
+            "Default": "LogAction"
+          },
+          "DisableUser": {
+            "Type": "Task",
+            "Resource": "", # your-lambda-arn
+            "Parameters": {
+              "User.$": "$.User"
+            },
+            "ResultPath": "$.DisableUserResult",
+            "Next": "LogAction"
+          },
+          "EscalateToSecurityLead": {
+            "Type": "Task",
+            "Resource": "", # your-lambda-arn
+            "Parameters": {
+              "User.$": "$.User"
+            },
+            "ResultPath": "$.EscalateResult",
+            "Next": "LogAction"
+          },
+          "LogAction": {
+            "Type": "Task",
+            "Resource": "", # your-lambda-arn
+            "Parameters": {
+              "User.$": "$.User",
+              "Result.$": "$"
+            },
+            "End": true
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
