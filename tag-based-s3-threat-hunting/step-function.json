@@ -1,0 +1,55 @@
+{
+  "Comment": "Route based on S3 tag",
+  "StartAt": "Check Object Tag",
+  "States": {
+    "Check Object Tag": {
+      "Type": "Task",
+      "Resource": "", #your-lambda-arn
+      "ResultPath": "$.tagCheckResult",
+      "Next": "Evaluate Tag"
+    },
+    "Evaluate Tag": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.tagCheckResult.tag_value",
+          "StringEquals": "THREATS_FOUND",
+          "Next": "QuarantineIfThreatFounds"
+        },
+        {
+          "Variable": "$.tagCheckResult.tag_value",
+          "StringEquals": "NO_THREATS_FOUND",
+          "Next": "NoThreatsFound"
+        },
+        {
+          "Variable": "$.tagCheckResult.tag_value",
+          "StringEquals": "ANOTHER_TAGS",
+          "Next": "AnotherTaskThatYouWant"
+        }
+      ]
+    },
+    "QuarantineIfThreatFounds": {
+      "Type": "Task",
+      "Resource": "", #your-lambda-arn
+      "End": true
+    },
+    "NoThreatsFound": {
+      "Type": "Task",
+      "Resource": "", #your-lambda-arn
+      "Parameters": {
+        "bucket.$": "$.tagCheckResult.bucket",
+        "key.$": "$.tagCheckResult.key"
+      },
+      "End": true
+    },
+    "AnotherTaskThatYouWant": {
+      "Type": "Task",
+      "Resource": "", #your-lambda-arn
+      "Parameters": {
+        "bucket.$": "$.tagCheckResult.bucket",
+        "key.$": "$.tagCheckResult.key"
+      },
+      "End": true
+    }
+  }
+}
